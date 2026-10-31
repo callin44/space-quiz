@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Orbit — A space exploration quiz</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#f6f7f2; --card:#fff; --text:#202820; --muted:#768074; --line:#e6e9e1; --accent:#d5f879; --accent-text:#273c13; --subtle:#f5f7f0; --green:#26734b; --green-bg:#edf8ee; --red:#bc4147; --red-bg:#fff0f0; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100svh; background:var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:15px; line-height:1.55; }
+    button { font:inherit; }
+    button:focus-visible { outline:3px solid var(--green); outline-offset:4px; }
+    .shell { width:min(100% - 40px,480px); margin:0 auto; padding:32px 0 24px; }
+    header { display:flex; align-items:center; justify-content:space-between; }
+    .brand { display:flex; align-items:center; gap:9px; font-size:23px; font-weight:750; letter-spacing:-1px; }
+    .brand svg { width:29px; height:29px; }
+    .header-note { font-size:11px; font-weight:650; letter-spacing:1.5px; color:var(--muted); }
+    .hero { text-align:center; padding:25px 0 26px; }
+    .art { width:min(320px,100%); aspect-ratio:220 / 142; margin:auto; position:relative; }
+    .art svg { display:block; width:100%; height:100%; overflow:visible; }
+    .art canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .art.has-3d .static-planet, .art.has-3d .orbit { display:none; }
+    .orbit { transform-origin:110px 71px; animation:drift 22s linear infinite; }
+    .star { animation:twinkle 3s ease-in-out infinite alternate; }
+    .eyebrow { display:inline-flex; align-items:center; gap:7px; margin:13px 0 9px; font-size:10px; font-weight:750; letter-spacing:1.7px; color:var(--muted); }
+    .eyebrow::before { content:""; width:6px; height:6px; background:#87ad3c; border-radius:50%; }
+    h1 { font-size:34px; line-height:1.15; letter-spacing:-1.5px; margin:0 0 10px; font-weight:750; }
+    .hero p { color:var(--muted); margin:0; font-size:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:26px; box-shadow:0 8px 28px #25321c05; }
+    .stats { display:flex; justify-content:space-between; align-items:center; font-size:12px; }
+    .question-count { color:var(--muted); }
+    .question-count strong { color:var(--text); font-weight:650; }
+    .score { display:flex; align-items:center; gap:6px; background:var(--subtle); padding:5px 10px; border-radius:8px; font-size:12px; font-weight:650; }
+    .score svg { width:14px; height:14px; color:#809b3c; }
+    .progress { height:5px; border-radius:10px; background:var(--line); overflow:hidden; margin:15px 0 25px; }
+    .progress-fill { height:100%; width:0; background:#a9cf5c; border-radius:10px; transition:width .4s ease; }
+    .category { font-size:10px; font-weight:750; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; }
+    h2 { font-size:23px; font-weight:650; line-height:1.35; letter-spacing:-.65px; margin:8px 0 21px; }
+    .answers { display:grid; gap:10px; }
+    .answer { width:100%; display:flex; align-items:center; gap:13px; text-align:left; border:1px solid var(--line); border-radius:11px; background:var(--card); color:var(--text); padding:12px 14px; cursor:pointer; transition:background .18s,border-color .18s,transform .18s; min-height:51px; }
+    .answer:not(:disabled):hover { background:var(--subtle); border-color:#a6b48e; transform:translateY(-1px); }
+    .letter { display:grid; place-items:center; width:26px; height:26px; flex-shrink:0; border:1px solid var(--line); border-radius:6px; color:var(--muted); font-size:11px; font-weight:650; }
+    .answer-text { flex:1; font-size:14px; }
+    .answer:disabled { cursor:default; opacity:1; }
+    .answer.correct { background:var(--green-bg); border-color:var(--green); color:var(--green); animation:pop .4s ease; }
+    .answer.wrong { background:var(--red-bg); border-color:var(--red); color:var(--red); animation:shake .4s ease; }
+    .correct .letter { border-color:var(--green); color:var(--green); }
+    .wrong .letter { border-color:var(--red); color:var(--red); }
+    .mark { font-weight:700; font-size:17px; }
+    .feedback { margin:16px 0 0; padding:12px 14px; border-radius:10px; background:var(--green-bg); color:var(--green); font-size:13px; animation:appear .25s ease; }
+    .feedback.incorrect { background:var(--red-bg); color:var(--red); }
+    .feedback strong { display:block; margin-bottom:3px; }
+    .next { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; background:var(--accent); color:var(--accent-text); border:0; border-radius:11px; margin-top:21px; padding:13px; font-size:13px; font-weight:700; cursor:pointer; transition:filter .2s,transform .2s; }
+    .next:not(:disabled):hover { filter:brightness(.95); transform:translateY(-1px); }
+    .next:disabled { background:var(--subtle); color:var(--muted); cursor:not-allowed; }
+    .next svg { width:16px; height:16px; }
+    .hint { display:flex; justify-content:center; align-items:center; gap:6px; margin:13px 0 0; color:var(--muted); font-size:11px; }
+    .hint svg { width:12px; height:12px; }
+    footer { text-align:center; color:var(--muted); font-size:11px; margin-top:22px; }
+    footer span { margin:0 8px; color:#adb4a6; }
+    [hidden] { display:none !important; }
+    .results { text-align:center; padding:12px 0 0; }
+    .reaction { font-size:58px; line-height:1.3; margin:5px 0 15px; animation:pop .6s ease; }
+    .results h2 { font-size:27px; margin:7px 0 10px; }
+    .results p { color:var(--muted); font-size:14px; margin:0 auto 22px; max-width:330px; }
+    .result-score { font-size:55px; font-weight:750; letter-spacing:-3px; line-height:1.2; }
+    .result-score span { font-size:24px; color:var(--muted); letter-spacing:-1px; font-weight:450; }
+    .result-label { color:var(--muted); font-size:11px; letter-spacing:1.3px; text-transform:uppercase; margin:6px 0 23px; }
+    .summary { display:flex; justify-content:center; gap:25px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:16px 0; font-size:12px; }
+    .summary strong { font-weight:650; }
+    .summary .right { color:var(--green); }
+    .summary .missed { color:var(--red); }
+    .enter { animation:appear .3s ease; }
+    @keyframes drift { to { transform:rotate(360deg); } }
+    @keyframes twinkle { to { opacity:.35; } }
+    @keyframes appear { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pop { 0% { transform:scale(.97); } 50% { transform:scale(1.025); } 100% { transform:scale(1); } }
+    @keyframes shake { 0%,100% { transform:translateX(0); } 20%,60% { transform:translateX(-5px); } 40%,80% { transform:translateX(5px); } }
+    @media (prefers-color-scheme:dark) {
+      :root { --bg:#151a16; --card:#1e2520; --text:#edf1e7; --muted:#a0aa9c; --line:#343d33; --subtle:#283027; --green:#85d6a6; --green-bg:#223d2c; --red:#ff969b; --red-bg:#42282c; }
+    }
+    @media (max-width:420px) { .shell { width:calc(100% - 28px); padding-top:22px; } .card { padding:21px; } .hero { padding-top:15px; } h1 { font-size:30px; } h2 { font-size:21px; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="brand">
+        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="8" stroke="currentColor" stroke-width="1.8"/><ellipse cx="16" cy="16" rx="16" ry="5" transform="rotate(-35 16 16)" stroke="currentColor" stroke-width="1.8"/><circle cx="26" cy="6" r="3" fill="#a9cf5c" stroke="var(--bg)" stroke-width="2"/></svg>
+        orbit<span style="color:#87ad3c">.</span>
+      </div>
+      <div class="header-note">A LITTLE COSMIC CURIOSITY</div>
+    </header>
+    <section class="hero" aria-labelledby="title">
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 220 142" fill="none">
+          <defs>
+            <radialGradient id="planet" cx=".3" cy=".25" r=".85"><stop stop-color="#f0fdc7"/><stop offset=".5" stop-color="#c9e887"/><stop offset="1" stop-color="#739644"/></radialGradient>
+            <linearGradient id="ring-color" x1="16" y1="41" x2="204" y2="101" gradientUnits="userSpaceOnUse"><stop stop-color="#8fa85e"/><stop offset=".35" stop-color="#d9e9a8"/><stop offset=".65" stop-color="#c3d790"/><stop offset="1" stop-color="#819e55"/></linearGradient>
+            <linearGradient id="planet-shadow" x1="75" y1="48" x2="148" y2="91" gradientUnits="userSpaceOnUse"><stop offset=".3" stop-color="#31471c" stop-opacity="0"/><stop offset="1" stop-color="#31471c" stop-opacity=".25"/></linearGradient>
+            <clipPath id="planet-clip"><circle cx="110" cy="71" r="42"/></clipPath>
+            <clipPath id="ring-front"><rect x="0" y="71" width="220" height="71"/></clipPath>
+            <g id="saturn-rings">
+              <ellipse cx="110" cy="71" rx="93" ry="31" stroke="url(#ring-color)" stroke-width="12"/>
+              <ellipse cx="110" cy="71" rx="98" ry="35" stroke="#e8f2cb" stroke-width="1" stroke-opacity=".8"/>
+              <ellipse cx="110" cy="71" rx="94" ry="32" stroke="#748b4c" stroke-width=".8" stroke-opacity=".65"/>
+              <ellipse cx="110" cy="71" rx="90" ry="29" stroke="#f0f8d5" stroke-width="1.4" stroke-opacity=".8"/>
+              <ellipse cx="110" cy="71" rx="85" ry="25" stroke="#637e40" stroke-width="1.7"/>
+              <ellipse cx="110" cy="71" rx="81" ry="22" stroke="#bfce92" stroke-width="3"/>
+              <ellipse cx="110" cy="71" rx="77" ry="19" stroke="#92ab68" stroke-width="1" stroke-opacity=".6"/>
+            </g>
+          </defs>
+          <circle cx="110" cy="71" r="65" stroke="var(--line)" stroke-dasharray="2 6"/>
+          <g class="static-planet">
+          <use href="#saturn-rings" transform="rotate(-24 110 71)"/>
+          <circle cx="110" cy="71" r="42" fill="url(#planet)"/>
+          <g clip-path="url(#planet-clip)" transform="rotate(-12 110 71)">
+            <g stroke="#83a948" stroke-opacity=".25">
+              <path d="M64 43 Q110 57 156 43" stroke-width="5"/>
+              <path d="M60 57 Q110 72 160 57" stroke-width="9"/>
+              <path d="M60 75 Q110 88 160 75" stroke-width="6"/>
+              <path d="M64 91 Q110 105 156 91" stroke-width="10"/>
+            </g>
+            <circle cx="110" cy="71" r="42" fill="url(#planet-shadow)"/>
+          </g>
+          <g transform="rotate(-24 110 71)"><use href="#saturn-rings" clip-path="url(#ring-front)"/></g>
+          </g>
+          <g class="orbit"><circle cx="175" cy="71" r="7" fill="#d5f879" stroke="#72974a" stroke-width="1.3"/><circle cx="175" cy="71" r="2" fill="#72974a"/></g>
+          <g class="star" stroke="#8b9d76" stroke-linecap="round"><path d="M39 30v10m-5-5h10M177 109v8m-4-4h8"/></g>
+          <circle cx="167" cy="22" r="2" fill="#99ae7d"/><circle cx="50" cy="119" r="2" fill="#99ae7d"/><circle cx="199" cy="82" r="1.5" fill="#99ae7d"/>
+        </svg>
+      </div>
+      <div class="eyebrow">THE SPACE EXPLORATION QUIZ</div>
+      <h1>A small step. A big brain.</h1>
+      <p>10 questions. One universe. How far will you go?</p>
+    </section>
+    <section class="card" aria-label="Space quiz">
+      <div class="stats">
+        <div class="question-count" id="question-count"><strong>Question 01</strong> / 10</div>
+        <div class="score" aria-live="polite">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m10 2 2.4 5 5.6.8-4 4 .9 5.6L10 15l-4.9 2.4.9-5.6-4-4L7.6 7 10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <span id="score">0 points</span>
+        </div>
+      </div>
+      <div class="progress" role="progressbar" aria-label="Questions answered" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><div class="progress-fill"></div></div>
+      <div id="quiz">
+        <div id="question-content">
+          <div class="category" id="category"></div>
+          <h2 id="question" tabindex="-1"></h2>
+          <div class="answers" id="answers" role="group" aria-labelledby="question"></div>
+        </div>
+        <div class="feedback" id="feedback" role="status" hidden></div>
+        <button class="next" id="next" disabled><span id="next-label">Next question</span><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <p class="hint" id="hint"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor"/><path d="M8 7v4M8 4.5v.5" stroke="currentColor" stroke-linecap="round"/></svg> Choose an answer to continue</p>
+      </div>
+      <div class="results" id="results" hidden>
+        <div class="reaction" id="reaction" aria-hidden="true"></div>
+        <div class="category">MISSION COMPLETE</div>
+        <h2 id="result-title" tabindex="-1"></h2>
+        <p id="result-message"></p>
+        <div class="result-score" id="result-score"></div>
+        <div class="result-label">Your cosmic score</div>
+        <div class="summary"><span class="right" id="correct-total"></span><span class="missed" id="wrong-total"></span></div>
+        <button class="next" id="restart">Take another orbit <span aria-hidden="true">&#8635;</span></button>
+      </div>
+    </section>
+    <footer>Made for curious minds <span>&#10022;</span> No spacesuit required</footer>
+  </main>
+  <script>
+    const questions = [
+      { category:"Our solar system", question:"Which planet is known as the Red Planet?", answers:["Venus","Mars","Jupiter","Saturn"], correct:1, explanation:"Iron minerals in its soil oxidize (or rust), giving Mars its signature reddish color." },
+      { category:"One giant leap", question:"Who was the first person to walk on the Moon?", answers:["Yuri Gagarin","Buzz Aldrin","Neil Armstrong","Michael Collins"], correct:2, explanation:"Neil Armstrong stepped onto the Moon on July 20, 1969, during the Apollo 11 mission." },
+      { category:"Cosmic neighbors", question:"What is the largest planet in our solar system?", answers:["Earth","Neptune","Saturn","Jupiter"], correct:3, explanation:"Jupiter is the giant of our solar system, with more than twice the mass of all the other planets combined." },
+      { category:"Firsts in flight", question:"What was the first artificial satellite sent into orbit?", answers:["Sputnik 1","Explorer 1","Voyager 1","Hubble"], correct:0, explanation:"The Soviet Union launched Sputnik 1 on October 4, 1957, marking the beginning of the Space Age." },
+      { category:"Life in orbit", question:"Why do astronauts float aboard the International Space Station?", answers:["There is no gravity in space","They are in continuous free fall","The station blocks gravity","Their suits make them weightless"], correct:1, explanation:"Gravity still pulls on the ISS. The station and its crew continuously fall around Earth together, creating apparent weightlessness." },
+      { category:"Beyond the blue", question:"Which galaxy is home to our solar system?", answers:["Andromeda","Triangulum","The Milky Way","The Whirlpool Galaxy"], correct:2, explanation:"Our solar system lives in the Orion Arm of the Milky Way, a vast barred spiral galaxy." },
+      { category:"Robotic explorers", question:"On which planet did the Perseverance rover land in 2021?", answers:["Venus","Mercury","Jupiter","Mars"], correct:3, explanation:"Perseverance landed in Mars's Jezero Crater to study ancient environments and collect rock samples." },
+      { category:"Our nearest star", question:"About how long does sunlight take to reach Earth?", answers:["8 minutes","1 second","1 hour","24 hours"], correct:0, explanation:"Sunlight travels roughly 150 million kilometers to Earth in about 8 minutes and 20 seconds." },
+      { category:"Looking deeper", question:"What does the James Webb Space Telescope primarily observe?", answers:["Radio waves","Infrared light","Sound waves","Gamma rays"], correct:1, explanation:"Webb observes infrared light to study early galaxies, forming stars, and the atmospheres of distant planets." },
+      { category:"The final frontier", question:"Which spacecraft was the first to enter interstellar space?", answers:["Apollo 11","New Horizons","Voyager 1","Cassini"], correct:2, explanation:"Voyager 1 crossed the heliopause in 2012, becoming the first spacecraft to enter interstellar space." }
+    ];
+    const $ = id => document.getElementById(id);
+    let current = 0;
+    let score = 0;
+    let answered = false;
+
+    function renderQuestion(focus = false) {
+      answered = false;
+      const item = questions[current];
+      $("question-count").innerHTML = `<strong>Question ${String(current + 1).padStart(2, "0")}</strong> / 10`;
+      $("category").textContent = item.category;
+      $("question").textContent = item.question;
+      $("feedback").hidden = true;
+      $("next").disabled = true;
+      $("next-label").textContent = current === questions.length - 1 ? "See my results" : "Next question";
+      $("hint").textContent = "Choose an answer to continue";
+      $("answers").replaceChildren();
+      item.answers.forEach((text, index) => {
+        const button = document.createElement("button");
+        button.className = "answer";
+        button.innerHTML = `<span class="letter" aria-hidden="true">${"ABCD"[index]}</span><span class="answer-text"></span><span class="mark" aria-hidden="true"></span>`;
+        button.querySelector(".answer-text").textContent = text;
+        button.addEventListener("click", () => selectAnswer(index));
+        $("answers").append(button);
+      });
+      $("question-content").classList.remove("enter");
+      void $("question-content").offsetWidth;
+      $("question-content").classList.add("enter");
+      if (focus) $("question").focus();
+    }
+
+    function updateProgress(value) {
+      const progress = document.querySelector(".progress");
+      progress.setAttribute("aria-valuenow", value);
+      progress.querySelector(".progress-fill").style.width = `${value / questions.length * 100}%`;
+    }
+
+    function selectAnswer(selected) {
+      if (answered) return;
+      answered = true;
+      const item = questions[current];
+      const isCorrect = selected === item.correct;
+      if (isCorrect) score++;
+      $("score").textContent = `${score} ${score === 1 ? "point" : "points"}`;
+      [...$("answers").children].forEach((button, index) => {
+        button.disabled = true;
+        if (index === item.correct) {
+          button.classList.add("correct");
+          button.querySelector(".mark").textContent = "\u2713";
+          button.setAttribute("aria-label", `${item.answers[index]} — correct answer`);
+        } else if (index === selected) {
+          button.classList.add("wrong");
+          button.querySelector(".mark").textContent = "\u00d7";
+          button.setAttribute("aria-label", `${item.answers[index]} — incorrect answer`);
+        }
+      });
+      $("feedback").className = `feedback${isCorrect ? "" : " incorrect"}`;
+      $("feedback").replaceChildren();
+      const heading = document.createElement("strong");
+      heading.textContent = isCorrect ? "Nice work, explorer!" : "Not quite. A little cosmic knowledge:";
+      $("feedback").append(heading, document.createTextNode(item.explanation));
+      $("feedback").hidden = false;
+      $("next").disabled = false;
+      $("hint").textContent = isCorrect ? "One more discovery in the books." : "Every great explorer keeps learning.";
+      updateProgress(current + 1);
+      $("next").focus({ preventScroll:true });
+    }
+
+    function showResults() {
+      $("quiz").hidden = true;
+      $("results").hidden = false;
+      $("question-count").innerHTML = "<strong>Mission complete</strong> / 10";
+      const reaction = score === 10 ? ["\ud83e\uddd1\u200d\ud83d\ude80","You're a cosmic legend!","A perfect mission. From our planetary neighbors to interstellar space, you really know your universe."] :
+        score >= 7 ? ["\ud83d\ude80","Ready for liftoff!","Impressive exploring! Your space knowledge is taking you places. Keep that curiosity in orbit."] :
+        score >= 4 ? ["\ud83d\udef0\ufe0f","Finding your orbit.","You've made some stellar discoveries. There's a whole universe of fascinating things left to learn."] :
+        ["\ud83c\udf31","Every explorer starts somewhere.","Your first mission is complete. You've picked up new cosmic knowledge, and your next orbit can go even further."];
+      $("reaction").textContent = reaction[0];
+      $("result-title").textContent = reaction[1];
+      $("result-message").textContent = reaction[2];
+      $("result-score").innerHTML = `${score}<span> / 10</span>`;
+      $("correct-total").innerHTML = `<strong>${score}</strong> correct`;
+      $("wrong-total").innerHTML = `<strong>${questions.length - score}</strong> missed`;
+      $("result-title").focus();
+    }
+
+    $("next").addEventListener("click", () => {
+      if (!answered) return;
+      if (current === questions.length - 1) showResults();
+      else { current++; renderQuestion(true); }
+    });
+    $("restart").addEventListener("click", () => {
+      current = 0;
+      score = 0;
+      $("score").textContent = "0 points";
+      $("results").hidden = true;
+      $("quiz").hidden = false;
+      updateProgress(0);
+      renderQuestion(true);
+    });
+    renderQuestion();
+
+    function startPlanet() {
+      const art = document.querySelector(".art");
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl", { alpha:true, antialias:true });
+      if (!gl) {
+        console.warn("3D planet unavailable: WebGL is not supported. Keeping the SVG illustration.");
+        return;
+      }
+      const vertexSource = `
+        attribute vec2 position;
+        void main() { gl_Position = vec4(position, 0.0, 1.0); }
+      `;
+      const fragmentSource = `
+        precision highp float;
+        uniform vec2 resolution;
+        uniform float time;
+        const float radius = 0.64;
+        const float innerRing = 0.91;
+        const float outerRing = 1.43;
+        bool ringGap(float r) {
+          return (r > 1.16 && r < 1.19) || (r > 1.34 && r < 1.355);
+        }
+        float ballHit(vec3 origin, vec3 direction, float size) {
+          float a = dot(direction, direction);
+          float b = dot(origin, direction);
+          float d = b*b - a*(dot(origin, origin) - size*size);
+          if (d < 0.0) return 1000.0;
+          float t = (-b - sqrt(d)) / a;
+          return t > 0.0 ? t : 1000.0;
+        }
+        float sphereHit(vec3 origin, vec3 direction) {
+          return ballHit(origin, direction, radius);
+        }
+        vec3 rockLocal(vec3 p, vec3 east, vec3 axis, vec3 north, float spin) {
+          float x = dot(p, east);
+          float z = dot(p, north);
+          return vec3(cos(spin)*x - sin(spin)*z, dot(p, axis), sin(spin)*x + cos(spin)*z);
+        }
+        vec3 rockWorld(vec3 p, vec3 east, vec3 axis, vec3 north, float spin) {
+          return east*(cos(spin)*p.x + sin(spin)*p.z) + axis*p.y + north*(-sin(spin)*p.x + cos(spin)*p.z);
+        }
+        void main() {
+          vec2 uv = (2.0 * gl_FragCoord.xy - resolution) / resolution.y;
+          vec3 eye = vec3(0.0, 0.0, 3.7);
+          vec3 ray = normalize(vec3(uv * 0.42, -1.0));
+          vec3 light = normalize(vec3(-3.0, 4.0, 5.0));
+          float tilt = 0.6 + 0.15 * sin(time * 0.065);
+          float roll = -0.4 + 0.09 * sin(time * 0.045);
+          vec3 axis = vec3(-sin(roll)*cos(tilt), cos(roll)*cos(tilt), sin(tilt));
+          vec3 east = vec3(cos(roll), sin(roll), 0.0);
+          vec3 north = cross(axis, east);
+          float sphere = sphereHit(eye, ray);
+          float ring = 1000.0;
+          float divisor = dot(ray, axis);
+          if (abs(divisor) > 0.0001) {
+            float t = -dot(eye, axis) / divisor;
+            float r = length(eye + ray*t);
+            if (t > 0.0 && r > innerRing && r < outerRing && !ringGap(r)) ring = t;
+          }
+          float nearest = min(sphere, ring);
+          float material = sphere < ring ? 0.0 : 1.0;
+          vec3 rockCenter = vec3(0.0);
+          vec3 rockScale = vec3(1.0);
+          float rockSpin = 0.0;
+          float rockIndex = 0.0;
+          for (int i = 0; i < 7; i++) {
+            float index = float(i);
+            float angle = index*0.8976 + 0.3 - time*0.07;
+            float distance = 1.02 + 0.32*(0.5 + 0.5*sin(index*2.4));
+            float size = 0.065 + 0.03*(0.5 + 0.5*cos(index*1.7));
+            vec3 center = (east*cos(angle) + north*sin(angle))*distance + axis*size*0.65;
+            vec3 scale = vec3(size*1.25, size*0.85, size);
+            float spin = index*1.3 + time*(0.16 + index*0.012);
+            vec3 origin = rockLocal(eye-center, east, axis, north, spin) / scale;
+            vec3 direction = rockLocal(ray, east, axis, north, spin) / scale;
+            float hit = ballHit(origin, direction, 1.0);
+            if (hit < nearest) {
+              nearest = hit;
+              material = 2.0;
+              rockCenter = center;
+              rockScale = scale;
+              rockSpin = spin;
+              rockIndex = index;
+            }
+          }
+          float moonAngle = 0.35 + time*0.13;
+          vec3 moonCenter = vec3(1.58*cos(moonAngle), 0.48*sin(moonAngle), 0.75*sin(moonAngle));
+          float moon = ballHit(eye-moonCenter, ray, 0.15);
+          if (moon < nearest) { nearest = moon; material = 3.0; }
+          if (nearest == 1000.0) discard;
+          vec3 color;
+          if (material == 0.0) {
+            vec3 p = eye + ray*sphere;
+            vec3 normal = normalize(p);
+            float longitude = atan(dot(p, north), dot(p, east)) + time*0.12;
+            float latitude = dot(p, axis) / radius;
+            float clouds = sin(latitude*31.0 + 0.8*sin(longitude*3.0 + latitude*9.0));
+            float detail = sin(latitude*83.0 + sin(longitude*5.0))*0.035;
+            float bands = smoothstep(-0.55, 0.7, clouds)*0.26 + detail;
+            color = mix(vec3(0.80, 0.92, 0.54), vec3(0.57, 0.72, 0.32), bands);
+            float shade = 0.39 + 0.61*max(dot(normal, light), 0.0);
+            float shadowT = -dot(p, axis) / dot(light, axis);
+            float shadowR = length(p + shadowT*light);
+            if (shadowT > 0.01 && shadowR > innerRing && shadowR < outerRing && !ringGap(shadowR)) shade *= 0.75;
+            color *= shade;
+            color += vec3(0.12, 0.14, 0.07)*pow(max(dot(normal, normalize(light-ray)), 0.0), 28.0);
+          } else if (material == 1.0) {
+            vec3 p = eye + ray*ring;
+            float r = length(p);
+            float angle = atan(dot(p, north), dot(p, east)) + time*0.07;
+            float bands = 0.5 + 0.3*sin(r*145.0) + 0.15*sin(r*310.0);
+            float dust = sin(angle*9.0 + r*24.0)*0.035;
+            color = mix(vec3(0.51, 0.62, 0.33), vec3(0.87, 0.93, 0.67), clamp(bands+dust, 0.0, 1.0));
+            color *= 0.65 + 0.35*abs(dot(axis, light));
+            if (sphereHit(p + light*0.002, light) < 1000.0) color *= 0.55;
+          } else if (material == 2.0) {
+            vec3 p = eye + ray*nearest;
+            vec3 local = rockLocal(p-rockCenter, east, axis, north, rockSpin) / rockScale;
+            float roughness = sin(local.x*17.0 + rockIndex)*sin(local.y*13.0)*sin(local.z*19.0);
+            vec3 localNormal = normalize(local / rockScale + vec3(
+              sin(local.y*15.0), sin(local.z*18.0), cos(local.x*16.0)
+            )*1.7);
+            vec3 normal = normalize(rockWorld(localNormal, east, axis, north, rockSpin));
+            float grain = 0.5 + 0.2*roughness + 0.15*sin(local.x*29.0 + local.z*23.0);
+            color = mix(vec3(0.40, 0.39, 0.28), vec3(0.73, 0.71, 0.53), grain);
+            color *= 0.35 + 0.65*max(dot(normal, light), 0.0);
+            if (sphereHit(p + light*0.002, light) < 1000.0) color *= 0.6;
+          } else {
+            vec3 p = eye + ray*moon;
+            vec3 normal = normalize(p-moonCenter);
+            float spin = time*0.10;
+            vec3 local = vec3(cos(spin)*normal.x - sin(spin)*normal.z, normal.y, sin(spin)*normal.x + cos(spin)*normal.z);
+            float crater = 0.0;
+            for (int i = 0; i < 6; i++) {
+              float index = float(i);
+              vec3 center = normalize(vec3(sin(index*2.7 + 1.0), cos(index*1.9), sin(index*4.1 + 0.5)));
+              float d = length(local-center);
+              crater += (1.0-smoothstep(0.12, 0.28, d))*0.28;
+              crater -= exp(-pow((d-0.28)*28.0, 2.0))*0.10;
+            }
+            float grain = sin(local.x*44.0)*sin(local.y*37.0)*sin(local.z*41.0)*0.025;
+            color = vec3(0.76, 0.81, 0.65)*(1.0-crater+grain);
+            color *= 0.28 + 0.72*max(dot(normal, light), 0.0);
+            if (sphereHit(p + light*0.002, light) < 1000.0) color *= 0.6;
+          }
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+      function compile(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const error = gl.getShaderInfoLog(shader);
+          gl.deleteShader(shader);
+          throw new Error(error);
+        }
+        return shader;
+      }
+      let program;
+      const shaders = [];
+      try {
+        shaders.push(compile(gl.VERTEX_SHADER, vertexSource));
+        shaders.push(compile(gl.FRAGMENT_SHADER, fragmentSource));
+        program = gl.createProgram();
+        shaders.forEach(shader => gl.attachShader(program, shader));
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+      } catch (error) {
+        console.warn("3D planet could not initialize. Keeping the SVG illustration.", error);
+        if (program) gl.deleteProgram(program);
+        return;
+      } finally {
+        shaders.forEach(shader => gl.deleteShader(shader));
+      }
+      gl.useProgram(program);
+      const buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+      const position = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      const resolution = gl.getUniformLocation(program, "resolution");
+      const time = gl.getUniformLocation(program, "time");
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+      let frame = 0;
+      let elapsed = 0;
+      let previous = 0;
+      let contextLost = false;
+      function draw(now) {
+        frame = 0;
+        if (contextLost || document.hidden) return;
+        if (previous && !reducedMotion.matches) elapsed += Math.min((now - previous) / 1000, 0.1);
+        previous = now;
+        const pixelRatio = Math.min(devicePixelRatio || 1, 2);
+        const width = Math.round(art.clientWidth*pixelRatio);
+        const height = Math.round(art.clientHeight*pixelRatio);
+        if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+        gl.viewport(0, 0, width, height);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.uniform2f(resolution, width, height);
+        gl.uniform1f(time, elapsed);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        if (!reducedMotion.matches) frame = requestAnimationFrame(draw);
+      }
+      function resume() {
+        cancelAnimationFrame(frame);
+        previous = 0;
+        if (!document.hidden && !contextLost) frame = requestAnimationFrame(draw);
+      }
+      canvas.addEventListener("webglcontextlost", () => {
+        contextLost = true;
+        cancelAnimationFrame(frame);
+        canvas.hidden = true;
+        art.classList.remove("has-3d");
+        console.warn("3D planet lost its WebGL context. Restoring the SVG illustration.");
+      });
+      art.append(canvas);
+      art.classList.add("has-3d");
+      new ResizeObserver(resume).observe(art);
+      reducedMotion.addEventListener("change", resume);
+      document.addEventListener("visibilitychange", resume);
+      resume();
+    }
+    startPlanet();
+  </script>
+</body>
+</html>
